@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import google.generativeai as genai
 import os
@@ -8,8 +8,8 @@ import re
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
-CORS(app)
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Configure Gemini API
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
@@ -56,38 +56,7 @@ chat_session = model.start_chat(history=[
     }
 ])
 
-# FRONTEND ROUTES
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-# Serve static files
-@app.route('/static/<path:path>')
-def send_static(path):
-    return send_from_directory('static', path)
-
-# Serve images
-@app.route('/images/<path:path>')
-def send_images(path):
-    return send_from_directory('images', path)
-
-# Serve time folder images
-@app.route('/time/<path:path>')
-def send_time_images(path):
-    return send_from_directory('time', path)
-
-# Serve logo
-@app.route('/logo.png')
-def send_logo():
-    return send_from_directory('.', 'logo.png')
-
-# Serve video
-@app.route('/bodhgaya.mp4')
-def send_video():
-    return send_from_directory('.', 'bodhgaya.mp4')
-
-# API ROUTES
-@app.route('/api/chat', methods=['POST'])
+@app.route('/chat', methods=['POST'])
 def chat():
     try:
         data = request.json
@@ -146,11 +115,9 @@ def format_response(text):
     
     return '\n'.join(formatted_lines)
 
-@app.route('/api/health', methods=['GET'])
+@app.route('/health', methods=['GET'])
 def health():
     return jsonify({'status': 'healthy'}), 200
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-
-    
+    app.run(debug=True, port=5000)
