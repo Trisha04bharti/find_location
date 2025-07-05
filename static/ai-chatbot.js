@@ -8,8 +8,9 @@ class AIBodhiChatbot {
         this.closeBtn = document.getElementById('chatbot-close');
         this.container = document.getElementById('chatbot-container');
         
-        // Backend URL - Update this when deploying
-        this.backendUrl = 'http://localhost:5000';  // Change to your deployed backend URL
+        // Backend URL - UPDATED FOR RENDER DEPLOYMENT
+        // Replace 'your-app-name' with your actual Render app name
+        this.backendUrl = 'https://your-app-name.onrender.com';  // UPDATE THIS WITH YOUR RENDER URL
         
         this.init();
     }
@@ -93,22 +94,45 @@ class AIBodhiChatbot {
         } catch (error) {
             console.error('Error:', error);
             this.removeTypingIndicator();
-            this.addMessage('I apologize, but I\'m having trouble connecting to my knowledge base. Please try again in a moment. 🙏', 'bot');
+            
+            // More detailed error message for debugging
+            let errorMessage = 'I apologize, but I\'m having trouble connecting to my knowledge base. ';
+            
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage += 'Please check your internet connection or try again later. 🙏';
+            } else if (error.message.includes('Cold start')) {
+                errorMessage += 'The service is waking up. Please try again in a few seconds. ⏳';
+            } else {
+                errorMessage += 'Please try again in a moment. 🙏';
+            }
+            
+            this.addMessage(errorMessage, 'bot');
         }
     }
     
     async sendToAI(message) {
         try {
+            // Add timeout for slow cold starts on Render free tier
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+            
             const response = await fetch(`${this.backendUrl}/chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message: message })
+                body: JSON.stringify({ message: message }),
+                signal: controller.signal
             });
             
+            clearTimeout(timeoutId);
+            
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                // Check if it's a cold start (first request after sleep)
+                if (response.status === 503 || response.status === 502) {
+                    throw new Error('Cold start - service is waking up');
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
@@ -116,6 +140,12 @@ class AIBodhiChatbot {
             
         } catch (error) {
             console.error('Error calling AI:', error);
+            
+            // Handle timeout specifically
+            if (error.name === 'AbortError') {
+                throw new Error('Request timeout - service may be starting up');
+            }
+            
             throw error;
         }
     }
@@ -196,4 +226,7 @@ class AIBodhiChatbot {
 // Initialize chatbot when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     const aiChatbot = new AIBodhiChatbot();
+    
+    // Optional: Add a console message to confirm the backend URL
+    console.log('AI Chatbot initialized with backend:', aiChatbot.backendUrl);
 });
